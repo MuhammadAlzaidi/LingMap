@@ -8,7 +8,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.transforms import Bbox
 from shapely.geometry import Point, box
 import pandas as pd
 import geopandas as gpd
@@ -213,7 +212,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                         arrowprops=dict(arrowstyle="-",color="#555555",
                                         lw=.7,shrinkA=1,shrinkB=3))
             fig.canvas.draw()
-            rect=annotation.get_window_extent(fig.canvas.get_renderer()).expanded(1.06,1.14)
+            rect=annotation.get_bbox_patch().get_window_extent(fig.canvas.get_renderer()).expanded(1.06,1.14)
             collisions=sum(rect.overlaps(other) for other in occupied)
             collisions+=sum(rect.contains(px,py) for px,py in marker_positions
                             if abs(px-ax.transData.transform((row.longitude,row.latitude))[0])>2
