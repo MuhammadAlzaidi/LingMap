@@ -72,14 +72,17 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
     label_offsets=label_offsets or {}
     # Width in physical mm is the controlling dimension for print typography.
     width_in=width_mm/25.4
-    fig,ax=plt.subplots(figsize=(width_in,width_in*.78),layout="constrained")
+    fig,ax=plt.subplots(figsize=(width_in,width_in*.82))
+    fig.subplots_adjust(left=.025,right=.975,top=.975,bottom=.16 if show_legend else .045)
     fig.patch.set_facecolor("white"); ax.set_facecolor("white")
     xmin,ymin,xmax,ymax=focus.total_bounds
-    px=max((xmax-xmin)*.11,1.3); py=max((ymax-ymin)*.11,1.3)
+    px=max((xmax-xmin)*.055,.75); py=max((ymax-ymin)*.055,.75)
     limits=(xmin-px,ymin-py,xmax+px,ymax+py)
     if show_context:
         nearby=geo[(~geo.country.isin(selected)) & geo.intersects(
             __import__("shapely").geometry.box(*limits))]
+        if selected==["Saudi Arabia"]:
+            nearby=nearby[nearby.country.isin({"Jordan","Iraq","Kuwait","Qatar","United Arab Emirates","Oman","Yemen"})]
         if not nearby.empty:
             nearby.plot(ax=ax,color="#fafafa",edgecolor="#777777",linewidth=.5,zorder=1)
             for row in nearby.itertuples():
@@ -111,7 +114,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         ax.scatter(row.longitude,row.latitude,s=marker_size,marker=marker,
                    facecolor=face,edgecolor="black",linewidth=edge,zorder=6)
     # Labels are attached to actual coordinates using visible leader lines.
-    presets={"Buraydah":(14,18),"Unaizah":(-14,-17),
+    presets={"Buraydah":(14,18),"Unaizah":(23,-16),
              "Jeddah":(-17,18),"Makkah":(14,18),"Taif":(15,-17),
              "Madinah":(12,12),"Riyadh":(14,13),"Al-Kharj":(14,-15)}
     for row in coords:
@@ -163,10 +166,10 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         handles=[Line2D([],[],marker=MARKERS[r][0],linestyle="None",markersize=6,
                         markerfacecolor=MARKERS[r][1],markeredgecolor="black",label=r)
                  for r in present]
-        ax.legend(handles=handles,loc="lower center",bbox_to_anchor=(.5,-.025),ncol=min(3,len(handles)),fontsize=6.4,frameon=False,
-                  facecolor="white",edgecolor="#aaaaaa")
+        fig.legend(handles=handles,loc="lower center",bbox_to_anchor=(.5,.055),
+                   ncol=min(3,len(handles)),fontsize=7,frameon=False)
     if show_notes:
-        fig.text(.05,.01,"Natural Earth 1:110m. Points are research locations, not dialect boundaries.",
+        fig.text(.05,.005,"Natural Earth 1:110m. Points are research locations, not dialect boundaries.",
                  fontsize=6,color="#555555")
     return fig
 
