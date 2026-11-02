@@ -47,8 +47,9 @@ with tabs[0]:
         except (ValueError,pd.errors.ParserError) as exc:
             st.error(f"خطأ في الملف: {exc}");st.stop()
     options=data.city.astype(str).tolist()
-    if not cfg["city_selection"]:
+    if not cfg.get("selection_initialized",False):
         cfg["city_selection"]=options[:8] if uploaded is None else options
+        cfg["selection_initialized"]=True
     cfg["city_selection"]=[x for x in cfg["city_selection"] if x in options]
     cfg["city_selection"]=st.multiselect("المدن التي ستظهر على الخريطة",
                                         options,default=cfg["city_selection"])
@@ -92,6 +93,7 @@ with tabs[2]:
     context=st.checkbox("إظهار حدود الدول المجاورة وأسمائها",True)
     gulf=st.checkbox("إظهار Gulf Sea",True)
     legend=st.checkbox("إظهار مفتاح الرموز",True)
+    insets=st.checkbox("إضافة خرائط مكبرة لمناطق المدن المتقاربة",False)
     axes=st.checkbox("إظهار خطوط الطول والعرض",False)
     notes=st.checkbox("إضافة ملاحظة المصدر داخل الشكل",False)
     size=st.slider("حجم رموز المواقع",20,100,42)
@@ -104,7 +106,7 @@ with tabs[3]:
                         marker_size=size,show_gulf=gulf,show_context=context,
                         show_legend=legend,show_axes=axes,show_notes=notes,
                         roles=cfg["role_map"],hidden_labels=cfg["hidden"],
-                        label_offsets=cfg["offsets"],width_mm=width,show_title=show_title)
+                        label_offsets=cfg["offsets"],width_mm=width,show_title=show_title,show_insets=insets)
         left,right=st.columns([3,1])
         with left: st.pyplot(fig,use_container_width=True)
         with right:
