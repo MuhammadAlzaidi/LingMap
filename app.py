@@ -121,7 +121,6 @@ with st.form("lingmap_settings_form", clear_on_submit=False):
 st.download_button("تنزيل نموذج CSV",base.head(4).to_csv(index=False).encode("utf-8-sig"),
                    "lingmap_template.csv","text/csv")
 if submitted:
-    st.session_state["generate_map"]=True
     st.session_state["render_cfg"]={
         "countries":list(cfg["countries"]),"title":cfg["title"],"labels":labels,
         "size":size,"gulf":gulf,"context":context,"legend":legend,
@@ -131,6 +130,7 @@ if submitted:
         "cities":list(cfg["city_selection"]),
         "data":data.copy()
     }
+    st.session_state.pop("rendered_files",None)
 st.subheader("معاينة الخريطة وتنزيلها")
 if "render_cfg" not in st.session_state:
     st.info("لن تُنشأ الخريطة تلقائيًا. اضبط الإعدادات في الأقسام أعلاه، ثم اضغط «تحديث الخريطة».")
@@ -138,16 +138,22 @@ else:
     rendered=st.session_state["render_cfg"]
     shown=rendered["data"][rendered["data"].city.astype(str).isin(rendered["cities"])]
     try:
-        with st.spinner("جارٍ إعداد الخريطة وتحديث المعاينة… يرجى الانتظار"):
-            fig=make_figure(shown,rendered["countries"],title=rendered["title"],labels=rendered["labels"],
-                            marker_size=rendered["size"],show_gulf=rendered["gulf"],show_context=rendered["context"],
-                            show_legend=rendered["legend"],show_axes=rendered["axes"],show_notes=rendered["notes"],
-                            roles=rendered["role_map"],hidden_labels=rendered["hidden"],
-                            label_offsets=rendered["offsets"],width_mm=rendered["width"],
-                            show_title=rendered["show_title"],show_insets=rendered["insets"])
+        if "rendered_files" not in st.session_state:
+            with st.spinner("جارٍ إعداد الخريطة وتحديث المعاينة… يرجى الانتظار"):
+                fig=make_figure(shown,rendered["countries"],title=rendered["title"],labels=rendered["labels"],
+                                marker_size=rendered["size"],show_gulf=rendered["gulf"],show_context=rendered["context"],
+                                show_legend=rendered["legend"],show_axes=rendered["axes"],show_notes=rendered["notes"],
+                                roles=rendered["role_map"],hidden_labels=rendered["hidden"],
+                                label_offsets=rendered["offsets"],width_mm=rendered["width"],
+                                show_title=rendered["show_title"],show_insets=rendered["insets"])
+                st.session_state["rendered_files"]={
+                    fmt:outputs[fmt] for fmt in ("png","pdf","svg")
+                }
+                plt.close(fig)
+        outputs=st.session_state["rendered_files"]
         left,right=st.columns([3,1])
         with left:
-            st.pyplot(fig,use_container_width=True)
+            st.image(outputs["png"],use_container_width=True)
         with right:
             st.subheader("تنزيل الشكل")
             for fmt,mime in [("png","image/png"),("pdf","application/pdf"),("svg","image/svg+xml")]:
@@ -157,7 +163,6 @@ else:
                                json.dumps({k:v for k,v in cfg.items() if k!="selection_initialized"},
                                           ensure_ascii=False,indent=2).encode("utf-8"),
                                "lingmap_settings.json","application/json")
-        plt.close(fig)
     except (ValueError,RuntimeError) as exc:
         st.error(f"تعذر إنشاء الخريطة: {exc}")
     with st.expander("بيانات المدن المستخدمة"):
