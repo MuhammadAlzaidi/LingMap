@@ -57,6 +57,24 @@ def boundaries():
     # Source sometimes uses 'United States of America', irrelevant to our area.
     return geo[geo.country.isin(ALLOWED)][["country","geometry"]].copy()
 
+@lru_cache(maxsize=1)
+def coastline_data():
+    """Natural Earth coastlines: lines only, with no political names or fills."""
+    local=ROOT/"data"/"natural_earth_110m_coastline.geojson"
+    url="https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_coastline.geojson"
+    if not local.exists():
+        try:
+            with urllib.request.urlopen(url,timeout=35) as response:
+                raw=response.read()
+            obj=json.loads(raw)
+            if obj.get("type")!="FeatureCollection" or not obj.get("features"):
+                raise ValueError("Invalid coastline dataset")
+            local.parent.mkdir(exist_ok=True)
+            local.write_bytes(raw)
+        except Exception as exc:
+            raise RuntimeError("Natural Earth coastline data unavailable: "+str(exc)) from exc
+    return gpd.read_file(local)
+
 def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                 show_gulf=True,sampled_cities=None,show_context=True,
                 show_legend=True,show_axes=False,show_notes=False,
@@ -77,6 +95,11 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
     fig.patch.set_facecolor("white"); ax.set_facecolor("#f1f1f1")
     xmin,ymin,xmax,ymax=focus.total_bounds
     px=max((xmax-xmin)*.055,.75); py=max((ymax-ymin)*.055,.75)
+    # Wider Saudi extent reveals the opposite shores of both seas.
+    if selected==["Saudi Arabia"]:
+        xmin=min(xmin,32.0); xmax=max(xmax,58.0)
+        ymin=min(ymin,15.0); ymax=max(ymax,31.0)
+        px=.45; py=.45
     limits=(xmin-px,ymin-py,xmax+px,ymax+py)
     if show_context:
         nearby=geo[(~geo.country.isin(selected)) & geo.intersects(
@@ -91,6 +114,16 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                 if limits[0]<p.x<limits[2] and limits[1]<p.y<limits[3]:
                     ax.text(p.x,p.y,row.country,fontsize=6.8,color="#666666",
                             ha="center",va="center",zorder=2)
+    if selected==["Saudi Arabia"]:
+        # Draw actual opposite shores (including Iran's Gulf coastline) using
+        # unfilled Natural Earth linework. No Iran name, polygon, or shading.
+        # The Red Sea's African shore is included without country labels.
+        from shapely.geometry import box
+        coast=coastline_data()
+        view=box(*limits)
+        coast=coast[coast.intersects(view)]
+        if not coast.empty:
+            coast.clip(view).plot(ax=ax,color="#777777",linewidth=.55,zorder=2.5)
     focus.plot(ax=ax,color="#d7d7d7",edgecolor="#222222",linewidth=.9,zorder=3)
     ax.set_xlim(limits[0],limits[2]); ax.set_ylim(limits[1],limits[3])
     # Geographic labels are deliberately in English.
