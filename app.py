@@ -15,6 +15,30 @@ st.set_page_config(page_title="LingMap | الخرائط اللغوية",page_ico
 st.markdown("""<style>
 [data-testid="stAppViewContainer"]{direction:rtl;}
 h1,h2,h3,p,label{text-align:right;}
+/* Center Streamlit's calculation indicator over the page viewport. */
+div[data-testid="stSpinner"] {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(10, 29, 46, .36) !important;
+  backdrop-filter: blur(2px);
+  pointer-events: all;
+}
+div[data-testid="stSpinner"] > div {
+  background: #10283e !important;
+  color: #fff !important;
+  padding: 22px 32px !important;
+  border: 1px solid #3fd0e7;
+  border-radius: 18px !important;
+  box-shadow: 0 15px 55px rgba(0,0,0,.28);
+  font-size: 1.1rem;
+  text-align: center;
+}
+div[data-testid="stSpinner"] p { color: #fff !important; text-align: center !important; }
+
 </style>""",unsafe_allow_html=True)
 st.title("LingMap | الخرائط اللغوية")
 st.caption("إنشاء خرائط أبيض وأسود للدراسات اللغوية والتجارب الصوتية")
@@ -102,11 +126,12 @@ with tabs[2]:
 with tabs[3]:
     shown=data[data.city.astype(str).isin(cfg["city_selection"])]
     try:
-        fig=make_figure(shown,cfg["countries"],title=cfg["title"],labels=labels,
-                        marker_size=size,show_gulf=gulf,show_context=context,
-                        show_legend=legend,show_axes=axes,show_notes=notes,
-                        roles=cfg["role_map"],hidden_labels=cfg["hidden"],
-                        label_offsets=cfg["offsets"],width_mm=width,show_title=show_title,show_insets=insets)
+        with st.spinner("جارٍ إعداد الخريطة وتحديث المعاينة… يرجى الانتظار"):
+            fig=make_figure(shown,cfg["countries"],title=cfg["title"],labels=labels,
+                            marker_size=size,show_gulf=gulf,show_context=context,
+                            show_legend=legend,show_axes=axes,show_notes=notes,
+                            roles=cfg["role_map"],hidden_labels=cfg["hidden"],
+                            label_offsets=cfg["offsets"],width_mm=width,show_title=show_title,show_insets=insets)
         left,right=st.columns([3,1])
         with left: st.pyplot(fig,use_container_width=True)
         with right:
