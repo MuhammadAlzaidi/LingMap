@@ -91,15 +91,15 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
     # Width in physical mm is the controlling dimension for print typography.
     width_in=width_mm/25.4
     fig,ax=plt.subplots(figsize=(width_in,width_in*.82))
-    fig.subplots_adjust(left=.025,right=.975,top=.975,bottom=.16 if show_legend else .045)
-    fig.patch.set_facecolor("white"); ax.set_facecolor("#f1f1f1")
+    fig.subplots_adjust(left=.035,right=.965,top=.965,bottom=.115 if show_legend else .035)
+    fig.patch.set_facecolor("white"); ax.set_facecolor("#f5f7f8")
     xmin,ymin,xmax,ymax=focus.total_bounds
     px=max((xmax-xmin)*.055,.75); py=max((ymax-ymin)*.055,.75)
     # Wider Saudi extent reveals the opposite shores of both seas.
     if selected==["Saudi Arabia"]:
         xmin=min(xmin,32.0); xmax=max(xmax,58.0)
         ymin=min(ymin,15.0); ymax=max(ymax,31.0)
-        px=.45; py=.45
+        px=.8; py=.8
     limits=(xmin-px,ymin-py,xmax+px,ymax+py)
     if show_context:
         nearby=geo[(~geo.country.isin(selected)) & geo.intersects(
@@ -107,13 +107,24 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         if selected==["Saudi Arabia"]:
             nearby=nearby[nearby.country.isin({"Jordan","Iraq","Kuwait","Qatar","United Arab Emirates","Oman","Yemen"})]
         if not nearby.empty:
-            nearby.plot(ax=ax,color="#e3e3e3",edgecolor="#777777",linewidth=.5,zorder=1)
+            nearby.plot(ax=ax,color="#e3e3e3",edgecolor="#777777",linewidth=.42,zorder=1)
+            # Fixed, cartographically sensible label anchors prevent country
+            # names from crossing coastlines or overlapping the sea labels.
+            anchors={"Jordan":(36.5,31.4),"Iraq":(44.5,31.2),
+                     "Kuwait":(47.5,29.5),"Qatar":(51.1,24.7),
+                     "United Arab Emirates":(54.5,23.5),
+                     "Oman":(56.5,19.6),"Yemen":(44.4,15.8)}
             for row in nearby.itertuples():
-                # Use point on surface, not a potentially offshore centroid.
                 p=row.geometry.representative_point()
-                if limits[0]<p.x<limits[2] and limits[1]<p.y<limits[3]:
-                    ax.text(p.x,p.y,row.country,fontsize=6.8,color="#666666",
-                            ha="center",va="center",zorder=2)
+                x,y=anchors.get(row.country,(p.x,p.y)) if selected==["Saudi Arabia"] else (p.x,p.y)
+                from shapely.geometry import Point
+                # Do not place a country label in the water or outside its polygon.
+                if not row.geometry.covers(Point(x,y)):
+                    p=row.geometry.representative_point()
+                    x,y=p.x,p.y
+                if limits[0]+.3<x<limits[2]-.3 and limits[1]+.3<y<limits[3]-.3:
+                    ax.text(x,y,row.country,fontsize=6.3,color="#666666",
+                            ha="center",va="center",zorder=2,clip_on=True)
     if selected==["Saudi Arabia"]:
         # Draw actual opposite shores (including Iran's Gulf coastline) using
         # unfilled Natural Earth linework. No Iran name, polygon, or shading.
@@ -123,8 +134,8 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         view=box(*limits)
         coast=coast[coast.intersects(view)]
         if not coast.empty:
-            coast.clip(view).plot(ax=ax,color="#777777",linewidth=.55,zorder=2.5)
-    focus.plot(ax=ax,color="#d7d7d7",edgecolor="#222222",linewidth=.9,zorder=3)
+            coast.clip(view).plot(ax=ax,color="#777777",linewidth=.45,zorder=2.5)
+    focus.plot(ax=ax,color="#d7d7d7",edgecolor="#333333",linewidth=.72,zorder=3)
     ax.set_xlim(limits[0],limits[2]); ax.set_ylim(limits[1],limits[3])
     # Geographic labels are deliberately in English.
     if show_gulf and "Saudi Arabia" in selected:
@@ -161,7 +172,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                     fontsize=7.2,color="black",
                     ha="left" if ox>=0 else "right",
                     va="bottom" if oy>=0 else "top",zorder=8,
-                    bbox=dict(facecolor="white",edgecolor="none",alpha=.9,pad=.5),
+                    bbox=dict(facecolor="white",edgecolor="none",alpha=.72,pad=.22),
                     arrowprops=dict(arrowstyle="-",color="#555555",
                                     lw=.7,shrinkA=1,shrinkB=3))
     if show_insets and "Saudi Arabia" in selected:
@@ -199,7 +210,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         handles=[Line2D([],[],marker=MARKERS[r][0],linestyle="None",markersize=6,
                         markerfacecolor=MARKERS[r][1],markeredgecolor="black",label=r)
                  for r in present]
-        fig.legend(handles=handles,loc="lower center",bbox_to_anchor=(.5,.055),
+        fig.legend(handles=handles,loc="lower center",bbox_to_anchor=(.5,.027),
                    ncol=min(3,len(handles)),fontsize=7,frameon=False)
     if show_notes:
         fig.text(.05,.005,"Natural Earth 1:110m. Points are research locations, not dialect boundaries.",
