@@ -6,7 +6,7 @@ from lingmap_core import COUNTRIES, ROOT, validate_locations, make_figure, expor
 
 COUNTRY_AR={"Saudi Arabia":"المملكة العربية السعودية","Jordan":"الأردن","Iraq":"العراق","Egypt":"مصر","Morocco":"المغرب","Tunisia":"تونس","Algeria":"الجزائر"}
 REGION_AR={"Central":"الوسطى","Western":"الغربية","Eastern":"الشرقية","Southern":"الجنوبية","Northern":"الشمالية"}
-st.set_page_config(page_title="لينغ ماب | خرائط الدراسات اللغوية",page_icon="🗺️",layout="wide")
+st.set_page_config(page_title="LingMap | خرائط الدراسات اللغوية",page_icon="🗺️",layout="wide")
 st.markdown("""<style>[data-testid="stAppViewContainer"],[data-testid="stSidebar"]{direction:rtl;}h1,h2,h3,p,label{text-align:right;}</style>""",unsafe_allow_html=True)
 st.title("لينغ ماب | LingMap 🗺️")
 st.caption("خرائط بالأبيض والأسود لمواقع الدراسات اللغوية والتجارب الصوتية")
