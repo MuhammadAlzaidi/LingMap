@@ -61,7 +61,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                 show_gulf=True,sampled_cities=None,show_context=True,
                 show_legend=True,show_axes=False,show_notes=False,
                 roles=None,hidden_labels=None,label_offsets=None,
-                width_mm=175,show_title=False):
+                width_mm=175,show_title=False,show_insets=False):
     df=validate_locations(df)
     selected=[c for c in selected_countries if c in COUNTRIES]
     if not selected: raise ValueError("Choose at least one supported country")
@@ -75,7 +75,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
     fig,ax=plt.subplots(figsize=(width_in,width_in*.78),layout="constrained")
     fig.patch.set_facecolor("white"); ax.set_facecolor("white")
     xmin,ymin,xmax,ymax=focus.total_bounds
-    px=max((xmax-xmin)*.18,1.6); py=max((ymax-ymin)*.18,1.6)
+    px=max((xmax-xmin)*.11,1.3); py=max((ymax-ymin)*.11,1.3)
     limits=(xmin-px,ymin-py,xmax+px,ymax+py)
     if show_context:
         nearby=geo[(~geo.country.isin(selected)) & geo.intersects(
@@ -110,34 +110,47 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         marker,face,edge=MARKERS.get(role,MARKERS["Reference city"])
         ax.scatter(row.longitude,row.latitude,s=marker_size,marker=marker,
                    facecolor=face,edgecolor="black",linewidth=edge,zorder=6)
-    # Small, deterministic offsets in display points; no geographic movement.
-    # Nearby city pairs are given opposite positions.
-    for index,row in enumerate(coords):
+    # Labels are attached to actual coordinates using visible leader lines.
+    presets={"Buraydah":(14,18),"Unaizah":(-14,-17),
+             "Jeddah":(-17,18),"Makkah":(14,18),"Taif":(15,-17),
+             "Madinah":(12,12),"Riyadh":(14,13),"Al-Kharj":(14,-15)}
+    for row in coords:
         city=str(row.city)
         if not labels or city in hidden_labels:
             continue
-        near=[other for other in coords if other.city!=row.city
-              and abs(other.longitude-row.longitude)<0.8
-              and abs(other.latitude-row.latitude)<0.8]
-        dx,dy=label_offsets.get(city,(0,0))
-        if not (dx or dy):
-            if near:
-                # Assign opposite label directions based on latitude.
-                higher=sum(other.latitude>row.latitude for other in near)
-                dx=8 if higher==0 else -8
-                dy=9 if higher==0 else -9
-            else:
-                dx,dy=7,7
-        ox,oy=4+float(dx),4+float(dy)
+        custom=label_offsets.get(city,(0,0))
+        ox,oy=(float(custom[0]),float(custom[1])) if any(float(x)!=0 for x in custom) else presets.get(city,(12,10))
         ax.annotate(city,(row.longitude,row.latitude),
                     xytext=(ox,oy),textcoords="offset points",
-                    fontsize=7.5,color="black",
+                    fontsize=7.2,color="black",
                     ha="left" if ox>=0 else "right",
-                    va="bottom" if oy>=0 else "top",
-                    zorder=7,
-                    arrowprops=(dict(arrowstyle="-",color="#777777",
-                                     lw=.5,shrinkA=2,shrinkB=3)
-                                if max(abs(ox),abs(oy))>16 else None))
+                    va="bottom" if oy>=0 else "top",zorder=8,
+                    bbox=dict(facecolor="white",edgecolor="none",alpha=.9,pad=.5),
+                    arrowprops=dict(arrowstyle="-",color="#555555",
+                                    lw=.7,shrinkA=1,shrinkB=3))
+    if show_insets and "Saudi Arabia" in selected:
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+        clusters=[("Qassim",(42.8,25.4,45.0,27.2),"upper left"),
+                  ("Western region",(38.7,20.7,41.1,22.2),"lower right")]
+        for name,(x0,y0,x1,y1),position in clusters:
+            subset=shown[shown.longitude.between(x0,x1)&shown.latitude.between(y0,y1)]
+            if len(subset)<2:
+                continue
+            ia=inset_axes(ax,width="28%",height="23%",loc=position,borderpad=1.2)
+            ia.set_facecolor("white")
+            ia.set_xlim(x0,x1);ia.set_ylim(y0,y1)
+            ia.set_title(name,fontsize=7,pad=3)
+            for r in subset.itertuples():
+                role=roles.get(str(r.city),"Reference city")
+                marker,face,edge=MARKERS.get(role,MARKERS["Reference city"])
+                ia.scatter(r.longitude,r.latitude,s=25,marker=marker,
+                           facecolor=face,edgecolor="black",linewidth=.8,zorder=3)
+                if str(r.city) not in hidden_labels:
+                    ia.annotate(str(r.city),(r.longitude,r.latitude),
+                                xytext=(5,5),textcoords="offset points",fontsize=6)
+            ia.set_xticks([]);ia.set_yticks([])
+            for spine in ia.spines.values():
+                spine.set_linewidth(.7);spine.set_color("#777777")
     if show_title and title: ax.set_title(title,fontsize=10.5,pad=8)
     if show_axes:
         ax.set_xlabel("Longitude (°E)",fontsize=8)
@@ -150,7 +163,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         handles=[Line2D([],[],marker=MARKERS[r][0],linestyle="None",markersize=6,
                         markerfacecolor=MARKERS[r][1],markeredgecolor="black",label=r)
                  for r in present]
-        ax.legend(handles=handles,loc="lower left",fontsize=6.5,frameon=True,
+        ax.legend(handles=handles,loc="lower center",bbox_to_anchor=(.5,-.025),ncol=min(3,len(handles)),fontsize=6.4,frameon=False,
                   facecolor="white",edgecolor="#aaaaaa")
     if show_notes:
         fig.text(.05,.01,"Natural Earth 1:110m. Points are research locations, not dialect boundaries.",
