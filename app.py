@@ -24,7 +24,7 @@ base=pd.read_csv(ROOT/"data"/"cities.csv")
 def defaults():
     return dict(countries=["Saudi Arabia"],regions=["Central","Western","Eastern","Southern","Northern"],
                 city_selection=[],role_map={},hidden=[],offsets={},title="",
-                preset="Double column (175 mm)",dpi=600)
+                preset="Double column (175 mm)",dpi=600,selection_initialized=False)
 if "cfg" not in st.session_state: st.session_state.cfg=defaults()
 cfg=st.session_state.cfg
 tabs=st.tabs(["١. مواقع الدراسة","٢. تصنيف المواقع","٣. تصميم الخريطة","٤. المعاينة والتنزيل"])
