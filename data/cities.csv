@@ -1,61 +1,61 @@
-country,region,city,latitude,longitude,dialect,speakers
-Saudi Arabia,Central,Riyadh,24.7136,46.6753,Najdi,20
-Saudi Arabia,Central,Buraydah,26.3592,43.9818,Qassimi,10
-Saudi Arabia,Central,Unaizah,26.0843,43.9936,Qassimi,10
-Saudi Arabia,Central,Al-Kharj,24.1556,47.3120,Najdi,10
-Saudi Arabia,Western,Makkah,21.3891,39.8579,Makkan,15
-Saudi Arabia,Western,Madinah,24.5247,39.5692,Hijazi,15
-Saudi Arabia,Western,Jeddah,21.4858,39.1925,Hijazi,15
-Saudi Arabia,Western,Taif,21.2703,40.4158,Taifi,10
-Saudi Arabia,Western,Yanbu,24.0895,38.0618,Hijazi,10
-Saudi Arabia,Eastern,Dammam,26.4207,50.0888,Eastern,18
-Saudi Arabia,Eastern,Al-Khobar,26.2172,50.1971,Eastern,10
-Saudi Arabia,Eastern,Dhahran,26.2361,50.0393,Eastern,10
-Saudi Arabia,Eastern,Al-Ahsa,25.3830,49.5860,Eastern,10
-Saudi Arabia,Eastern,Jubail,27.0174,49.6225,Eastern,10
-Saudi Arabia,Southern,Abha,18.2465,42.5117,Southern,10
-Saudi Arabia,Southern,Khamis Mushait,18.3064,42.7292,Southern,10
-Saudi Arabia,Southern,Jazan,16.8892,42.5511,Southern,10
-Saudi Arabia,Southern,Najran,17.5650,44.2289,Southern,10
-Saudi Arabia,Southern,Al-Baha,20.0129,41.4677,Southern,10
-Saudi Arabia,Northern,Tabuk,28.3838,36.5550,Northern,10
-Saudi Arabia,Northern,Hail,27.5114,41.7208,Northern,10
-Saudi Arabia,Northern,Sakaka,29.9697,40.2064,Northern,10
-Saudi Arabia,Northern,Arar,30.9753,41.0381,Northern,10
-Saudi Arabia,Northern,Rafha,29.6342,43.5194,Northern,10
-Jordan,,Amman,31.9539,35.9106,Jordanian Arabic,12
-Jordan,,Irbid,32.5569,35.8479,Jordanian Arabic,12
-Jordan,,Zarqa,32.0728,36.0870,Jordanian Arabic,12
-Jordan,,Salt,32.0392,35.7272,Jordanian Arabic,12
-Jordan,,Karak,31.1854,35.7047,Jordanian Arabic,12
-Jordan,,Aqaba,29.5319,35.0061,Jordanian Arabic,12
-Iraq,,Baghdad,33.3152,44.3661,Iraqi Arabic,12
-Iraq,,Basra,30.5085,47.7804,Iraqi Arabic,12
-Iraq,,Mosul,36.3456,43.1575,Iraqi Arabic,12
-Iraq,,Erbil,36.1911,44.0092,Research site,12
-Iraq,,Najaf,31.9890,44.3260,Iraqi Arabic,12
-Iraq,,Karbala,32.6160,44.0249,Iraqi Arabic,12
-Egypt,,Cairo,30.0444,31.2357,Egyptian Arabic,12
-Egypt,,Alexandria,31.2001,29.9187,Egyptian Arabic,12
-Egypt,,Giza,30.0131,31.2089,Egyptian Arabic,12
-Egypt,,Aswan,24.0889,32.8998,Egyptian Arabic,12
-Egypt,,Luxor,25.6872,32.6396,Egyptian Arabic,12
-Egypt,,Mansoura,31.0409,31.3785,Egyptian Arabic,12
-Morocco,,Rabat,34.0209,-6.8416,Moroccan Arabic,12
-Morocco,,Casablanca,33.5731,-7.5898,Moroccan Arabic,12
-Morocco,,Fez,34.0331,-5.0003,Moroccan Arabic,12
-Morocco,,Marrakech,31.6295,-7.9811,Moroccan Arabic,12
-Morocco,,Tangier,35.7595,-5.8340,Moroccan Arabic,12
-Morocco,,Agadir,30.4278,-9.5981,Moroccan Arabic,12
-Tunisia,,Tunis,36.8065,10.1815,Tunisian Arabic,12
-Tunisia,,Sfax,34.7406,10.7603,Tunisian Arabic,12
-Tunisia,,Sousse,35.8256,10.63699,Tunisian Arabic,12
-Tunisia,,Kairouan,35.6781,10.0963,Tunisian Arabic,12
-Tunisia,,Bizerte,37.2744,9.8739,Tunisian Arabic,12
-Tunisia,,Gabes,33.8815,10.0982,Tunisian Arabic,12
-Algeria,,Algiers,36.7538,3.0588,Algerian Arabic,12
-Algeria,,Oran,35.6969,-0.6331,Algerian Arabic,12
-Algeria,,Constantine,36.3650,6.6147,Algerian Arabic,12
-Algeria,,Tlemcen,34.8783,-1.3150,Algerian Arabic,12
-Algeria,,Annaba,36.9000,7.7667,Algerian Arabic,12
-Algeria,,Tizi Ouzou,36.7169,4.0497,Algerian Arabic,12
+country,region,city,latitude,longitude
+Saudi Arabia,Central,Riyadh,24.7136,46.6753
+Saudi Arabia,Central,Buraydah,26.3592,43.9818
+Saudi Arabia,Central,Unaizah,26.0843,43.9936
+Saudi Arabia,Central,Al-Kharj,24.1556,47.3120
+Saudi Arabia,Western,Makkah,21.3891,39.8579
+Saudi Arabia,Western,Madinah,24.5247,39.5692
+Saudi Arabia,Western,Jeddah,21.4858,39.1925
+Saudi Arabia,Western,Taif,21.2703,40.4158
+Saudi Arabia,Western,Yanbu,24.0895,38.0618
+Saudi Arabia,Eastern,Dammam,26.4207,50.0888
+Saudi Arabia,Eastern,Al-Khobar,26.2172,50.1971
+Saudi Arabia,Eastern,Dhahran,26.2361,50.0393
+Saudi Arabia,Eastern,Al-Ahsa,25.3830,49.5860
+Saudi Arabia,Eastern,Jubail,27.0174,49.6225
+Saudi Arabia,Southern,Abha,18.2465,42.5117
+Saudi Arabia,Southern,Khamis Mushait,18.3064,42.7292
+Saudi Arabia,Southern,Jazan,16.8892,42.5511
+Saudi Arabia,Southern,Najran,17.5650,44.2289
+Saudi Arabia,Southern,Al-Baha,20.0129,41.4677
+Saudi Arabia,Northern,Tabuk,28.3838,36.5550
+Saudi Arabia,Northern,Hail,27.5114,41.7208
+Saudi Arabia,Northern,Sakaka,29.9697,40.2064
+Saudi Arabia,Northern,Arar,30.9753,41.0381
+Saudi Arabia,Northern,Rafha,29.6342,43.5194
+Jordan,,Amman,31.9539,35.9106
+Jordan,,Irbid,32.5569,35.8479
+Jordan,,Zarqa,32.0728,36.0870
+Jordan,,Salt,32.0392,35.7272
+Jordan,,Karak,31.1854,35.7047
+Jordan,,Aqaba,29.5319,35.0061
+Iraq,,Baghdad,33.3152,44.3661
+Iraq,,Basra,30.5085,47.7804
+Iraq,,Mosul,36.3456,43.1575
+Iraq,,Erbil,36.1911,44.0092
+Iraq,,Najaf,31.9890,44.3260
+Iraq,,Karbala,32.6160,44.0249
+Egypt,,Cairo,30.0444,31.2357
+Egypt,,Alexandria,31.2001,29.9187
+Egypt,,Giza,30.0131,31.2089
+Egypt,,Aswan,24.0889,32.8998
+Egypt,,Luxor,25.6872,32.6396
+Egypt,,Mansoura,31.0409,31.3785
+Morocco,,Rabat,34.0209,-6.8416
+Morocco,,Casablanca,33.5731,-7.5898
+Morocco,,Fez,34.0331,-5.0003
+Morocco,,Marrakech,31.6295,-7.9811
+Morocco,,Tangier,35.7595,-5.8340
+Morocco,,Agadir,30.4278,-9.5981
+Tunisia,,Tunis,36.8065,10.1815
+Tunisia,,Sfax,34.7406,10.7603
+Tunisia,,Sousse,35.8256,10.63699
+Tunisia,,Kairouan,35.6781,10.0963
+Tunisia,,Bizerte,37.2744,9.8739
+Tunisia,,Gabes,33.8815,10.0982
+Algeria,,Algiers,36.7538,3.0588
+Algeria,,Oran,35.6969,-0.6331
+Algeria,,Constantine,36.3650,6.6147
+Algeria,,Tlemcen,34.8783,-1.3150
+Algeria,,Annaba,36.9000,7.7667
+Algeria,,Tizi Ouzou,36.7169,4.0497
