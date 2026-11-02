@@ -8,6 +8,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.transforms import Bbox
+from shapely.geometry import Point, box
 import pandas as pd
 import geopandas as gpd
 
@@ -92,7 +94,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
     width_in=width_mm/25.4
     fig,ax=plt.subplots(figsize=(width_in,width_in*.82))
     fig.subplots_adjust(left=.035,right=.965,top=.965,bottom=.115 if show_legend else .035)
-    fig.patch.set_facecolor("white"); ax.set_facecolor("#f5f7f8")
+    fig.patch.set_facecolor("white"); ax.set_facecolor("#e9edf0")
     xmin,ymin,xmax,ymax=focus.total_bounds
     px=max((xmax-xmin)*.055,.75); py=max((ymax-ymin)*.055,.75)
     # Wider Saudi extent reveals the opposite shores of both seas.
@@ -108,28 +110,32 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
             nearby=nearby[nearby.country.isin({"Jordan","Iraq","Kuwait","Qatar","United Arab Emirates","Oman","Yemen"})]
         if not nearby.empty:
             nearby.plot(ax=ax,color="#e3e3e3",edgecolor="#777777",linewidth=.42,zorder=1)
-            # Fixed, cartographically sensible label anchors prevent country
-            # names from crossing coastlines or overlapping the sea labels.
             anchors={"Jordan":(36.5,31.4),"Iraq":(44.5,31.2),
-                     "Kuwait":(47.5,29.5),"Qatar":(51.1,24.7),
+                     "Kuwait":(47.5,29.5),"Qatar":(51.1,25.3),
                      "United Arab Emirates":(54.5,23.5),
                      "Oman":(56.5,19.6),"Yemen":(44.4,15.8)}
+            # Test the rendered text bounding box against the country geometry.
+            # Small countries are left unlabeled rather than placing text at sea.
             for row in nearby.itertuples():
                 p=row.geometry.representative_point()
-                x,y=anchors.get(row.country,(p.x,p.y)) if selected==["Saudi Arabia"] else (p.x,p.y)
-                from shapely.geometry import Point
-                # Do not place a country label in the water or outside its polygon.
-                if not row.geometry.covers(Point(x,y)):
-                    p=row.geometry.representative_point()
-                    x,y=p.x,p.y
-                if limits[0]+.3<x<limits[2]-.3 and limits[1]+.3<y<limits[3]-.3:
-                    ax.text(x,y,row.country,fontsize=6.3,color="#666666",
-                            ha="center",va="center",zorder=2,clip_on=True)
+                candidates=[anchors.get(row.country,(p.x,p.y)),(p.x,p.y)]
+                for x,y in candidates:
+                    if not (limits[0]+.3<x<limits[2]-.3 and limits[1]+.3<y<limits[3]-.3):
+                        continue
+                    label=ax.text(x,y,row.country,fontsize=6.1,color="#666666",
+                                  ha="center",va="center",zorder=2,clip_on=True)
+                    fig.canvas.draw()
+                    bb=label.get_window_extent(fig.canvas.get_renderer())
+                    corners=ax.transData.inverted().transform(
+                        [[bb.x0,bb.y0],[bb.x1,bb.y0],[bb.x1,bb.y1],[bb.x0,bb.y1]])
+                    if all(row.geometry.buffer(-.04).covers(Point(float(cx),float(cy)))
+                           for cx,cy in corners):
+                        break
+                    label.remove()
     if selected==["Saudi Arabia"]:
         # Draw actual opposite shores (including Iran's Gulf coastline) using
         # unfilled Natural Earth linework. No Iran name, polygon, or shading.
         # The Red Sea's African shore is included without country labels.
-        from shapely.geometry import box
         coast=coastline_data()
         view=box(*limits)
         coast=coast[coast.intersects(view)]
@@ -137,13 +143,29 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
             coast.clip(view).plot(ax=ax,color="#777777",linewidth=.45,zorder=2.5)
     focus.plot(ax=ax,color="#d7d7d7",edgecolor="#333333",linewidth=.72,zorder=3)
     ax.set_xlim(limits[0],limits[2]); ax.set_ylim(limits[1],limits[3])
-    # Geographic labels are deliberately in English.
-    if show_gulf and "Saudi Arabia" in selected:
-        ax.text(51.6,26.8,"Gulf Sea",fontsize=7.4,fontstyle="italic",color="#555555",
-                ha="center",zorder=4)
+    # Water labels are checked against nearby land and coastline.
     if "Saudi Arabia" in selected:
-        ax.text(38.2,23.4,"Red Sea",fontsize=7.2,fontstyle="italic",
-                color="#555555",rotation=70,ha="center",zorder=4)
+        sea_candidates=[("Red Sea",[(36.8,22.6),(36.5,21.7),(37.0,24.2)],70)]
+        if show_gulf:
+            sea_candidates.append(("Gulf Sea",[(51.8,27.3),(51.9,26.5),(52.4,27.5)],0))
+        coast_union=coast.geometry.union_all() if not coast.empty else None
+        land_union=geo.geometry.union_all()
+        for name,positions,angle in sea_candidates:
+            for x,y in positions:
+                if land_union.covers(Point(x,y)):
+                    continue
+                label=ax.text(x,y,name,fontsize=7.2,fontstyle="italic",
+                              color="#4c5256",rotation=angle,ha="center",
+                              va="center",zorder=4)
+                fig.canvas.draw()
+                bb=label.get_window_extent(fig.canvas.get_renderer())
+                corners=ax.transData.inverted().transform(
+                    [[bb.x0,bb.y0],[bb.x1,bb.y0],[bb.x1,bb.y1],[bb.x0,bb.y1]])
+                if all(not land_union.covers(Point(float(cx),float(cy))) for cx,cy in corners) and (
+                    coast_union is None or min(coast_union.distance(Point(float(cx),float(cy)))
+                                               for cx,cy in corners)>.08):
+                    break
+                label.remove()
     shown=df[df.country.isin(selected)]
     # Fixed, short point offsets: labels cannot drift geographically.
     # Crowded sites alternate directions. Every label remains attached
@@ -157,17 +179,54 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         marker,face,edge=MARKERS.get(role,MARKERS["Reference city"])
         ax.scatter(row.longitude,row.latitude,s=marker_size,marker=marker,
                    facecolor=face,edgecolor="black",linewidth=edge,zorder=6)
-    # Labels are attached to actual coordinates using visible leader lines.
+    # Place labels using rendered pixel bounding boxes, not fixed offsets.
+    # Explicit user offsets always take precedence over automatic placement.
     presets={"Buraydah":(14,18),"Unaizah":(23,-16),
-             "Jeddah":(-17,18),"Makkah":(14,18),"Taif":(15,-17),
+             "Jeddah":(-22,22),"Makkah":(18,18),"Taif":(15,-17),
              "Madinah":(12,12),"Riyadh":(14,13),"Al-Kharj":(14,-15)}
+    fig.canvas.draw()
+    renderer=fig.canvas.get_renderer()
+    occupied=[]
+    for text_artist in ax.texts:
+        occupied.append(text_artist.get_window_extent(renderer).expanded(1.05,1.15))
+    marker_positions=[ax.transData.transform((r.longitude,r.latitude)) for r in coords]
     for row in coords:
         city=str(row.city)
         if not labels or city in hidden_labels:
             continue
         custom=label_offsets.get(city,(0,0))
-        ox,oy=(float(custom[0]),float(custom[1])) if any(float(x)!=0 for x in custom) else presets.get(city,(12,10))
-        ax.annotate(city,(row.longitude,row.latitude),
+        manual=any(float(x)!=0 for x in custom)
+        preferred=tuple(map(float,custom)) if manual else presets.get(city,(12,10))
+        candidates=[preferred] if manual else [
+            preferred,(22,24),(-22,24),(22,-24),(-22,-24),
+            (35,10),(-35,10),(35,-10),(-35,-10),
+            (12,36),(-12,36),(12,-36),(-12,-36),
+            (48,24),(-48,24),(48,-24),(-48,-24)]
+        best=None
+        for ox,oy in candidates:
+            annotation=ax.annotate(city,(row.longitude,row.latitude),
+                        xytext=(ox,oy),textcoords="offset points",
+                        fontsize=7.2,color="black",
+                        ha="left" if ox>=0 else "right",
+                        va="bottom" if oy>=0 else "top",zorder=8,
+                        bbox=dict(facecolor="white",edgecolor="none",alpha=.72,pad=.22),
+                        arrowprops=dict(arrowstyle="-",color="#555555",
+                                        lw=.7,shrinkA=1,shrinkB=3))
+            fig.canvas.draw()
+            rect=annotation.get_window_extent(fig.canvas.get_renderer()).expanded(1.06,1.14)
+            collisions=sum(rect.overlaps(other) for other in occupied)
+            collisions+=sum(rect.contains(px,py) for px,py in marker_positions
+                            if abs(px-ax.transData.transform((row.longitude,row.latitude))[0])>2
+                            or abs(py-ax.transData.transform((row.longitude,row.latitude))[1])>2)
+            outside=not ax.get_window_extent().contains(rect.x0,rect.y0) or not ax.get_window_extent().contains(rect.x1,rect.y1)
+            score=collisions*100+int(outside)*1000+(abs(ox)+abs(oy))*.01
+            if best is None or score<best[0]:
+                best=(score,(ox,oy))
+            annotation.remove()
+            if score<1:
+                break
+        ox,oy=best[1]
+        annotation=ax.annotate(city,(row.longitude,row.latitude),
                     xytext=(ox,oy),textcoords="offset points",
                     fontsize=7.2,color="black",
                     ha="left" if ox>=0 else "right",
@@ -175,6 +234,8 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                     bbox=dict(facecolor="white",edgecolor="none",alpha=.72,pad=.22),
                     arrowprops=dict(arrowstyle="-",color="#555555",
                                     lw=.7,shrinkA=1,shrinkB=3))
+        fig.canvas.draw()
+        occupied.append(annotation.get_window_extent(fig.canvas.get_renderer()).expanded(1.06,1.14))
     if show_insets and "Saudi Arabia" in selected:
         from mpl_toolkits.axes_grid1.inset_locator import inset_axes
         clusters=[("Qassim",(42.8,25.4,45.0,27.2),"upper left"),
