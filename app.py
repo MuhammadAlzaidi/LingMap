@@ -16,7 +16,7 @@ st.markdown("""<style>
 [data-testid="stAppViewContainer"]{direction:rtl;}
 h1,h2,h3,p,label{text-align:right;}
 </style>""",unsafe_allow_html=True)
-st.title("LingMap | لينغ ماب")
+st.title("LingMap | الخرائط اللغوية")
 st.caption("إنشاء خرائط أبيض وأسود للدراسات اللغوية والتجارب الصوتية")
 st.info("تعليمات الموقع باللغة العربية. جميع النصوص على الخريطة المُصدّرة باللغة الإنجليزية.")
 base=pd.read_csv(ROOT/"data"/"cities.csv")
@@ -139,3 +139,19 @@ with st.expander("استعادة إعدادات سابقة / إعادة الضب
             if key.startswith(("role_","dx_","dy_")): del st.session_state[key]
         st.rerun()
 st.caption("المصدر الجغرافي: Natural Earth 1:110m. حدود الدول تعكس بيانات المصدر ولا تُستخدم لتحديد حدود اللهجات أو الفصل في النزاعات الحدودية.")
+
+st.markdown("""
+<style>
+.lingmap-footer {
+  direction: rtl; text-align: center; margin-top: 2rem;
+  padding: 1.3rem 1rem; border-top: 1px solid #c9d7e2;
+  color: #526478; font-size: .93rem;
+}
+.lingmap-footer a { color: #087ea4; text-decoration: none; font-weight: 600; }
+.lingmap-footer a:hover { text-decoration: underline; }
+</style>
+<footer class="lingmap-footer">
+  <div>تطوير: <a href="https://github.com/MuhammadAlzaidi" target="_blank" rel="noopener noreferrer">د. محمد بن صويلح الزايدي</a></div>
+  <div>إحدى الأدوات البحثية ضمن <a href="https://www.arabicling.com" target="_blank" rel="noopener noreferrer">منصة ظ.ai — Arabicling.com</a></div>
+</footer>
+""", unsafe_allow_html=True)
