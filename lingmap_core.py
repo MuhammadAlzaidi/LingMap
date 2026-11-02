@@ -74,7 +74,7 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
     width_in=width_mm/25.4
     fig,ax=plt.subplots(figsize=(width_in,width_in*.82))
     fig.subplots_adjust(left=.025,right=.975,top=.975,bottom=.16 if show_legend else .045)
-    fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+    fig.patch.set_facecolor("white"); ax.set_facecolor("#f1f1f1")
     xmin,ymin,xmax,ymax=focus.total_bounds
     px=max((xmax-xmin)*.055,.75); py=max((ymax-ymin)*.055,.75)
     limits=(xmin-px,ymin-py,xmax+px,ymax+py)
@@ -84,14 +84,14 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         if selected==["Saudi Arabia"]:
             nearby=nearby[nearby.country.isin({"Jordan","Iraq","Kuwait","Qatar","United Arab Emirates","Oman","Yemen"})]
         if not nearby.empty:
-            nearby.plot(ax=ax,color="#fafafa",edgecolor="#777777",linewidth=.5,zorder=1)
+            nearby.plot(ax=ax,color="#e3e3e3",edgecolor="#777777",linewidth=.5,zorder=1)
             for row in nearby.itertuples():
                 # Use point on surface, not a potentially offshore centroid.
                 p=row.geometry.representative_point()
                 if limits[0]<p.x<limits[2] and limits[1]<p.y<limits[3]:
                     ax.text(p.x,p.y,row.country,fontsize=6.8,color="#666666",
                             ha="center",va="center",zorder=2)
-    focus.plot(ax=ax,color="#ebebeb",edgecolor="#222222",linewidth=.9,zorder=3)
+    focus.plot(ax=ax,color="#d7d7d7",edgecolor="#222222",linewidth=.9,zorder=3)
     ax.set_xlim(limits[0],limits[2]); ax.set_ylim(limits[1],limits[3])
     # Geographic labels are deliberately in English.
     if show_gulf and "Saudi Arabia" in selected:
