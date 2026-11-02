@@ -51,98 +51,112 @@ def defaults():
                 preset="Double column (175 mm)",dpi=600,selection_initialized=False)
 if "cfg" not in st.session_state: st.session_state.cfg=defaults()
 cfg=st.session_state.cfg
-tabs=st.tabs(["١. مواقع الدراسة","٢. تصنيف المواقع","٣. تصميم الخريطة","٤. المعاينة والتنزيل"])
-with tabs[0]:
-    cfg["countries"]=st.multiselect("اختر الدول",COUNTRIES,default=cfg["countries"],
-                                     format_func=lambda x:AR[x])
-    if not cfg["countries"]: st.warning("اختر دولة واحدة على الأقل"); st.stop()
-    data=base[base.country.isin(cfg["countries"])].copy()
-    if cfg["countries"]==["Saudi Arabia"]:
-        cfg["regions"]=st.multiselect("اختر مناطق المملكة",list(REGION),default=cfg["regions"],
-                                     format_func=lambda x:REGION[x])
-        data=data[data.region.isin(cfg["regions"])]
-    uploaded=st.file_uploader("ملف مواقع الدراسة CSV (اختياري)",type="csv")
-    st.download_button("تنزيل نموذج CSV",base.head(4).to_csv(index=False).encode("utf-8-sig"),
-                       "lingmap_template.csv","text/csv")
-    if uploaded is not None:
-        try:
-            data=validate_locations(pd.read_csv(uploaded))
-            data=data[data.country.isin(cfg["countries"])]
-        except (ValueError,pd.errors.ParserError) as exc:
-            st.error(f"خطأ في الملف: {exc}");st.stop()
-    options=data.city.astype(str).tolist()
-    if not cfg.get("selection_initialized",False):
-        cfg["city_selection"]=options[:8] if uploaded is None else options
-        cfg["selection_initialized"]=True
-    cfg["city_selection"]=[x for x in cfg["city_selection"] if x in options]
-    cfg["city_selection"]=st.multiselect("المدن التي ستظهر على الخريطة",
-                                        options,default=cfg["city_selection"])
-    a,b=st.columns(2)
-    with a:
-        if st.button("اختيار جميع المدن"):
-            cfg["city_selection"]=options;st.rerun()
-    with b:
-        if st.button("إلغاء اختيار جميع المدن"):
-            cfg["city_selection"]=[];st.rerun()
-    st.caption("يمكن حذف مدينة أو أكثر بإلغاء اختيارها. المواقع المحذوفة لن تظهر في الشكل.")
-with tabs[1]:
-    st.markdown("**تصنيف مواقع الدراسة**")
-    st.caption("● جمع البيانات | ○ مقارنة | ▲ مدينة مرجعية. الرموز تظل واضحة عند الطباعة دون ألوان.")
-    role_map={}
-    for city in cfg["city_selection"]:
-        old=cfg["role_map"].get(city,"Reference city")
-        role_map[city]=st.selectbox(city,list(MARKERS),
-                                    index=list(MARKERS).index(old),
-                                    format_func=lambda x:ROLE_AR[x],key="role_"+city)
-    cfg["role_map"]=role_map
-    cfg["hidden"]=st.multiselect("إخفاء أسماء مدن محددة (مع إبقاء العلامات)",
-                                 cfg["city_selection"],
-                                 default=[x for x in cfg["hidden"] if x in cfg["city_selection"]])
-    with st.expander("ضبط موضع تسمية مدينة يدويًا"):
-        chosen=st.selectbox("المدينة",["—"]+cfg["city_selection"])
-        if chosen!="—":
-            dx,dy=cfg["offsets"].get(chosen,[0,0])
-            c1,c2=st.columns(2)
-            with c1: dx=st.number_input("الإزاحة الأفقية (نقاط)",-100,100,int(dx),key="dx_"+chosen)
-            with c2: dy=st.number_input("الإزاحة الرأسية (نقاط)",-100,100,int(dy),key="dy_"+chosen)
-            cfg["offsets"][chosen]=[dx,dy]
-with tabs[2]:
-    cfg["preset"]=st.selectbox("مقاس الشكل للمجلة",list(SIZES),
-                                index=list(SIZES).index(cfg["preset"]))
-    custom=st.checkbox("تحديد العرض يدويًا",False)
-    width=st.number_input("العرض بالمليمتر",60,350,SIZES[cfg["preset"]]) if custom else SIZES[cfg["preset"]]
-    show_title=st.checkbox("طباعة عنوان داخل الشكل (غير مفضّل للمجلات)",False)
-    cfg["title"]=st.text_input("عنوان الخريطة بالإنجليزية",cfg["title"])
-    labels=st.checkbox("إظهار أسماء المدن",True)
-    context=st.checkbox("إظهار حدود الدول المجاورة وأسمائها",True)
-    gulf=st.checkbox("إظهار Gulf Sea",True)
-    legend=st.checkbox("إظهار مفتاح الرموز",True)
-    insets=st.checkbox("إضافة خرائط مكبرة لمناطق المدن المتقاربة",False)
-    axes=st.checkbox("إظهار خطوط الطول والعرض",False)
-    notes=st.checkbox("إضافة ملاحظة المصدر داخل الشكل",False)
-    size=st.slider("حجم رموز المواقع",20,100,42)
-    cfg["dpi"]=st.selectbox("دقة PNG", [300,600],index=[300,600].index(cfg["dpi"]))
-    st.caption("الخرائط بالأبيض والأسود والرمادي، ومناسبة لإخراج PDF وSVG المتجهي.")
-with tabs[3]:
-    shown=data[data.city.astype(str).isin(cfg["city_selection"])]
+st.caption("اضبط جميع الخيارات أولاً، ثم اضغط «تحديث الخريطة» مرة واحدة. لن يُعاد إنشاء الخريطة عند تغيير الإعدادات.")
+with st.form("lingmap_settings_form", clear_on_submit=False):
+    tabs=st.tabs(["١. مواقع الدراسة","٢. تصنيف المواقع","٣. تصميم الخريطة"])
+    with tabs[0]:
+        cfg["countries"]=st.multiselect("اختر الدول",COUNTRIES,default=cfg["countries"],
+                                         format_func=lambda x:AR[x])
+        if not cfg["countries"]: st.warning("اختر دولة واحدة على الأقل"); st.stop()
+        data=base[base.country.isin(cfg["countries"])].copy()
+        if cfg["countries"]==["Saudi Arabia"]:
+            cfg["regions"]=st.multiselect("اختر مناطق المملكة",list(REGION),default=cfg["regions"],
+                                         format_func=lambda x:REGION[x])
+            data=data[data.region.isin(cfg["regions"])]
+        uploaded=st.file_uploader("ملف مواقع الدراسة CSV (اختياري)",type="csv")
+        if uploaded is not None:
+            try:
+                data=validate_locations(pd.read_csv(uploaded))
+                data=data[data.country.isin(cfg["countries"])]
+            except (ValueError,pd.errors.ParserError) as exc:
+                st.error(f"خطأ في الملف: {exc}");st.stop()
+        options=data.city.astype(str).tolist()
+        if not cfg.get("selection_initialized",False):
+            cfg["city_selection"]=options[:8] if uploaded is None else options
+            cfg["selection_initialized"]=True
+        cfg["city_selection"]=[x for x in cfg["city_selection"] if x in options]
+        cfg["city_selection"]=st.multiselect("المدن التي ستظهر على الخريطة",
+                                            options,default=cfg["city_selection"])
+        st.caption("يمكن حذف مدينة أو أكثر بإلغاء اختيارها. المواقع المحذوفة لن تظهر في الشكل.")
+    with tabs[1]:
+        st.markdown("**تصنيف مواقع الدراسة**")
+        st.caption("● جمع البيانات | ○ مقارنة | ▲ مدينة مرجعية. الرموز تظل واضحة عند الطباعة دون ألوان.")
+        role_map={}
+        for city in cfg["city_selection"]:
+            old=cfg["role_map"].get(city,"Reference city")
+            role_map[city]=st.selectbox(city,list(MARKERS),
+                                        index=list(MARKERS).index(old),
+                                        format_func=lambda x:ROLE_AR[x],key="role_"+city)
+        cfg["role_map"]=role_map
+        cfg["hidden"]=st.multiselect("إخفاء أسماء مدن محددة (مع إبقاء العلامات)",
+                                     cfg["city_selection"],
+                                     default=[x for x in cfg["hidden"] if x in cfg["city_selection"]])
+        with st.expander("ضبط موضع تسمية مدينة يدويًا"):
+            chosen=st.selectbox("المدينة",["—"]+cfg["city_selection"])
+            if chosen!="—":
+                dx,dy=cfg["offsets"].get(chosen,[0,0])
+                c1,c2=st.columns(2)
+                with c1: dx=st.number_input("الإزاحة الأفقية (نقاط)",-100,100,int(dx),key="dx_"+chosen)
+                with c2: dy=st.number_input("الإزاحة الرأسية (نقاط)",-100,100,int(dy),key="dy_"+chosen)
+                cfg["offsets"][chosen]=[dx,dy]
+    with tabs[2]:
+        cfg["preset"]=st.selectbox("مقاس الشكل للمجلة",list(SIZES),
+                                    index=list(SIZES).index(cfg["preset"]))
+        custom=st.checkbox("تحديد العرض يدويًا",False)
+        width=st.number_input("العرض بالمليمتر",60,350,SIZES[cfg["preset"]]) if custom else SIZES[cfg["preset"]]
+        show_title=st.checkbox("طباعة عنوان داخل الشكل (غير مفضّل للمجلات)",False)
+        cfg["title"]=st.text_input("عنوان الخريطة بالإنجليزية",cfg["title"])
+        labels=st.checkbox("إظهار أسماء المدن",True)
+        context=st.checkbox("إظهار حدود الدول المجاورة وأسمائها",True)
+        gulf=st.checkbox("إظهار Gulf Sea",True)
+        legend=st.checkbox("إظهار مفتاح الرموز",True)
+        insets=st.checkbox("إضافة خرائط مكبرة لمناطق المدن المتقاربة",False)
+        axes=st.checkbox("إظهار خطوط الطول والعرض",False)
+        notes=st.checkbox("إضافة ملاحظة المصدر داخل الشكل",False)
+        size=st.slider("حجم رموز المواقع",20,100,42)
+        cfg["dpi"]=st.selectbox("دقة PNG", [300,600],index=[300,600].index(cfg["dpi"]))
+        st.caption("الخرائط بالأبيض والأسود والرمادي، ومناسبة لإخراج PDF وSVG المتجهي.")
+
+    submitted=st.form_submit_button("🔄 تحديث الخريطة",type="primary",use_container_width=True)
+st.download_button("تنزيل نموذج CSV",base.head(4).to_csv(index=False).encode("utf-8-sig"),
+                   "lingmap_template.csv","text/csv")
+if submitted:
+    st.session_state["generate_map"]=True
+    st.session_state["render_cfg"]={
+        "countries":list(cfg["countries"]),"title":cfg["title"],"labels":labels,
+        "size":size,"gulf":gulf,"context":context,"legend":legend,
+        "axes":axes,"notes":notes,"role_map":dict(cfg["role_map"]),
+        "hidden":list(cfg["hidden"]),"offsets":dict(cfg["offsets"]),
+        "width":width,"show_title":show_title,"insets":insets,"dpi":cfg["dpi"],
+        "cities":list(cfg["city_selection"]),
+        "data":data.copy()
+    }
+st.subheader("معاينة الخريطة وتنزيلها")
+if "render_cfg" not in st.session_state:
+    st.info("لن تُنشأ الخريطة تلقائيًا. اضبط الإعدادات في الأقسام أعلاه، ثم اضغط «تحديث الخريطة».")
+else:
+    rendered=st.session_state["render_cfg"]
+    shown=rendered["data"][rendered["data"].city.astype(str).isin(rendered["cities"])]
     try:
         with st.spinner("جارٍ إعداد الخريطة وتحديث المعاينة… يرجى الانتظار"):
-            fig=make_figure(shown,cfg["countries"],title=cfg["title"],labels=labels,
-                            marker_size=size,show_gulf=gulf,show_context=context,
-                            show_legend=legend,show_axes=axes,show_notes=notes,
-                            roles=cfg["role_map"],hidden_labels=cfg["hidden"],
-                            label_offsets=cfg["offsets"],width_mm=width,show_title=show_title,show_insets=insets)
+            fig=make_figure(shown,rendered["countries"],title=rendered["title"],labels=rendered["labels"],
+                            marker_size=rendered["size"],show_gulf=rendered["gulf"],show_context=rendered["context"],
+                            show_legend=rendered["legend"],show_axes=rendered["axes"],show_notes=rendered["notes"],
+                            roles=rendered["role_map"],hidden_labels=rendered["hidden"],
+                            label_offsets=rendered["offsets"],width_mm=rendered["width"],
+                            show_title=rendered["show_title"],show_insets=rendered["insets"])
         left,right=st.columns([3,1])
-        with left: st.pyplot(fig,use_container_width=True)
+        with left:
+            st.pyplot(fig,use_container_width=True)
         with right:
             st.subheader("تنزيل الشكل")
             for fmt,mime in [("png","image/png"),("pdf","application/pdf"),("svg","image/svg+xml")]:
-                st.download_button("تنزيل "+fmt.upper(),export_figure(fig,fmt,cfg["dpi"]),
+                st.download_button("تنزيل "+fmt.upper(),export_figure(fig,fmt,rendered["dpi"]),
                                    "lingmap_figure."+fmt,mime=mime,use_container_width=True)
             st.download_button("حفظ إعدادات الشكل JSON",
-                               json.dumps(cfg,ensure_ascii=False,indent=2).encode("utf-8"),
+                               json.dumps({k:v for k,v in cfg.items() if k!="selection_initialized"},
+                                          ensure_ascii=False,indent=2).encode("utf-8"),
                                "lingmap_settings.json","application/json")
-            st.caption("احتفظ بإعدادات الشكل مع بيانات الدراسة لإعادة إنتاجه.")
         plt.close(fig)
     except (ValueError,RuntimeError) as exc:
         st.error(f"تعذر إنشاء الخريطة: {exc}")
