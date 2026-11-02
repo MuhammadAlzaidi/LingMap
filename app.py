@@ -147,7 +147,7 @@ else:
                                 label_offsets=rendered["offsets"],width_mm=rendered["width"],
                                 show_title=rendered["show_title"],show_insets=rendered["insets"])
                 st.session_state["rendered_files"]={
-                    fmt:outputs[fmt] for fmt in ("png","pdf","svg")
+                    fmt:export_figure(fig,fmt,rendered["dpi"]) for fmt in ("png","pdf","svg")
                 }
                 plt.close(fig)
         outputs=st.session_state["rendered_files"]
@@ -157,13 +157,13 @@ else:
         with right:
             st.subheader("تنزيل الشكل")
             for fmt,mime in [("png","image/png"),("pdf","application/pdf"),("svg","image/svg+xml")]:
-                st.download_button("تنزيل "+fmt.upper(),export_figure(fig,fmt,rendered["dpi"]),
+                st.download_button("تنزيل "+fmt.upper(),outputs[fmt],
                                    "lingmap_figure."+fmt,mime=mime,use_container_width=True)
             st.download_button("حفظ إعدادات الشكل JSON",
                                json.dumps({k:v for k,v in cfg.items() if k!="selection_initialized"},
                                           ensure_ascii=False,indent=2).encode("utf-8"),
                                "lingmap_settings.json","application/json")
-    except (ValueError,RuntimeError) as exc:
+    except (ValueError,RuntimeError,OSError) as exc:
         st.error(f"تعذر إنشاء الخريطة: {exc}")
     with st.expander("بيانات المدن المستخدمة"):
         st.dataframe(shown,use_container_width=True)
@@ -178,6 +178,8 @@ with st.expander("استعادة إعدادات سابقة / إعادة الضب
             st.rerun()
         except (ValueError,TypeError) as exc: st.error(str(exc))
     if st.button("إعادة ضبط جميع الخيارات"):
+        st.session_state.pop("render_cfg",None)
+        st.session_state.pop("rendered_files",None)
         st.session_state.cfg=defaults()
         for key in list(st.session_state):
             if key.startswith(("role_","dx_","dy_")): del st.session_state[key]
