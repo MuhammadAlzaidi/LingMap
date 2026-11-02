@@ -102,6 +102,14 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         ymin=min(ymin,15.0); ymax=max(ymax,31.0)
         px=.8; py=.8
     limits=(xmin-px,ymin-py,xmax+px,ymax+py)
+    if selected==["Saudi Arabia"]:
+        # Neutral land mask: white land against softly shaded water.
+        # The mask adds no names, country fills or political boundaries.
+        land_path=ROOT/"data"/"natural_earth_110m.geojson"
+        land=gpd.read_file(land_path)
+        land=land[land.intersects(box(*limits))]
+        if not land.empty:
+            land.plot(ax=ax,color="white",edgecolor="none",zorder=.5)
     if show_context:
         nearby=geo[(~geo.country.isin(selected)) & geo.intersects(
             __import__("shapely").geometry.box(*limits))]
@@ -142,17 +150,19 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
             coast.clip(view).plot(ax=ax,color="#777777",linewidth=.45,zorder=2.5)
     focus.plot(ax=ax,color="#d7d7d7",edgecolor="#333333",linewidth=.72,zorder=3)
     ax.set_xlim(limits[0],limits[2]); ax.set_ylim(limits[1],limits[3])
-    # Water labels are checked against nearby land and coastline.
-    if "Saudi Arabia" in selected:
-        sea_candidates=[("Red Sea",[(36.8,22.6),(36.5,21.7),(37.0,24.2)],70)]
+    # Place water names using the actual rendered text rectangle.
+    # Search along the waterway, rather than silently dropping a label
+    # when a few hand-picked points do not fit.
+    if selected==["Saudi Arabia"]:
+        sea_candidates=[("Red Sea",[(36.7,y) for y in (22.8,23.5,22.0,24.3,21.3,25.0,20.5,25.7)]
+                         +[(x,y) for x in (36.3,37.0,37.3,36.0)
+                           for y in (22.8,23.5,22.0,24.3,21.3,25.0)],70)]
         if show_gulf:
             sea_candidates.append(("Gulf Sea",[(51.8,27.3),(51.9,26.5),(52.4,27.5)],0))
-        coast_union=coast.geometry.union_all() if not coast.empty else None
-        land_union=geo.geometry.union_all()
+        # All land polygons are used only to test whether text is over water.
+        land_union=land.geometry.union_all()
         for name,positions,angle in sea_candidates:
             for x,y in positions:
-                if land_union.covers(Point(x,y)):
-                    continue
                 label=ax.text(x,y,name,fontsize=7.2,fontstyle="italic",
                               color="#4c5256",rotation=angle,ha="center",
                               va="center",zorder=4)
@@ -160,9 +170,10 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
                 bb=label.get_window_extent(fig.canvas.get_renderer())
                 corners=ax.transData.inverted().transform(
                     [[bb.x0,bb.y0],[bb.x1,bb.y0],[bb.x1,bb.y1],[bb.x0,bb.y1]])
-                if all(not land_union.covers(Point(float(cx),float(cy))) for cx,cy in corners) and (
-                    coast_union is None or min(coast_union.distance(Point(float(cx),float(cy)))
-                                               for cx,cy in corners)>.08):
+                label_area=box(float(corners[:,0].min()),float(corners[:,1].min()),
+                               float(corners[:,0].max()),float(corners[:,1].max()))
+                # Small clearance keeps the label visibly away from shore.
+                if not land_union.intersects(label_area.buffer(.07)):
                     break
                 label.remove()
     shown=df[df.country.isin(selected)]
