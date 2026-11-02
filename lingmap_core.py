@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 import geopandas as gpd
-from adjustText import adjust_text
 
 ROOT=Path(__file__).parent
 COUNTRIES=["Saudi Arabia","Jordan","Iraq","Egypt","Morocco","Tunisia","Algeria"]
@@ -99,23 +98,46 @@ def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
         ax.text(38.2,23.4,"Red Sea",fontsize=7.2,fontstyle="italic",
                 color="#555555",rotation=70,ha="center",zorder=4)
     shown=df[df.country.isin(selected)]
-    texts=[]
-    for row in shown.itertuples():
+    # Fixed, short point offsets: labels cannot drift geographically.
+    # Crowded sites alternate directions. Every label remains attached
+    # to its own marker; no global repulsion or stray arrows.
+    coords=list(shown.itertuples())
+    for row in coords:
         city=str(row.city)
         role=roles.get(city,"Reference city")
-        if sampled_cities and city in sampled_cities: role="Data collection site"
+        if sampled_cities and city in sampled_cities:
+            role="Data collection site"
         marker,face,edge=MARKERS.get(role,MARKERS["Reference city"])
         ax.scatter(row.longitude,row.latitude,s=marker_size,marker=marker,
                    facecolor=face,edgecolor="black",linewidth=edge,zorder=6)
-        if labels and city not in hidden_labels:
-            dx,dy=label_offsets.get(city,(0,0))
-            txt=ax.annotate(city,(row.longitude,row.latitude),
-                            xytext=(4+dx,4+dy),textcoords="offset points",
-                            fontsize=7.5,color="black",zorder=7)
-            if not(dx or dy): texts.append(txt)
-    if texts:
-        adjust_text(texts,ax=ax,expand=(1.15,1.35),
-                    arrowprops=dict(arrowstyle="-",lw=.45,color="#777777"))
+    # Small, deterministic offsets in display points; no geographic movement.
+    # Nearby city pairs are given opposite positions.
+    for index,row in enumerate(coords):
+        city=str(row.city)
+        if not labels or city in hidden_labels:
+            continue
+        near=[other for other in coords if other.city!=row.city
+              and abs(other.longitude-row.longitude)<0.8
+              and abs(other.latitude-row.latitude)<0.8]
+        dx,dy=label_offsets.get(city,(0,0))
+        if not (dx or dy):
+            if near:
+                # Assign opposite label directions based on latitude.
+                higher=sum(other.latitude>row.latitude for other in near)
+                dx=8 if higher==0 else -8
+                dy=9 if higher==0 else -9
+            else:
+                dx,dy=7,7
+        ox,oy=4+float(dx),4+float(dy)
+        ax.annotate(city,(row.longitude,row.latitude),
+                    xytext=(ox,oy),textcoords="offset points",
+                    fontsize=7.5,color="black",
+                    ha="left" if ox>=0 else "right",
+                    va="bottom" if oy>=0 else "top",
+                    zorder=7,
+                    arrowprops=(dict(arrowstyle="-",color="#777777",
+                                     lw=.5,shrinkA=2,shrinkB=3)
+                                if max(abs(ox),abs(oy))>16 else None))
     if show_title and title: ax.set_title(title,fontsize=10.5,pad=8)
     if show_axes:
         ax.set_xlabel("Longitude (°E)",fontsize=8)
