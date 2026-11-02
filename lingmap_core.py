@@ -1,6 +1,9 @@
-"""Black-and-white linguistic maps with English figure labels."""
+"""LingMap: journal-ready monochrome linguistic maps (English figure text only)."""
 from io import BytesIO
 from pathlib import Path
+from functools import lru_cache
+import json
+import urllib.request
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -9,88 +12,131 @@ import pandas as pd
 import geopandas as gpd
 from adjustText import adjust_text
 
-ROOT = Path(__file__).parent
-COUNTRIES = ["Saudi Arabia","Jordan","Iraq","Egypt","Morocco","Tunisia","Algeria"]
-REQUIRED = {"country","city","latitude","longitude"}
-CONTEXT = {
-"Saudi Arabia":[("Yemen",44.6,15.3),("Oman",56.3,20.7),("United Arab Emirates",54.4,24.4),("Qatar",51.4,25.4),("Kuwait",47.8,29.8),("Jordan",36.7,31.0),("Iraq",43.0,32.5)],
-"Jordan":[("Saudi Arabia",39.3,28.3),("Iraq",43.1,33.4),("Syria",36.5,33.5)],
-"Iraq":[("Turkey",43.0,38.3),("Syria",39.0,35.2),("Jordan",36.7,31.0),("Saudi Arabia",43.1,27.9),("Kuwait",47.8,29.4)],
-"Egypt":[("Sudan",30.0,19.6),("Libya",21.4,26.0)],
-"Morocco":[("Algeria",-1.0,32.0)],
-"Tunisia":[("Algeria",7.3,34.2),("Libya",12.1,31.8)],
-"Algeria":[("Morocco",-6.3,32.2),("Tunisia",10.3,34.5),("Libya",12.5,28.5),("Mali",-4.5,19.0),("Niger",9.8,18.8)]
-}
+ROOT=Path(__file__).parent
+COUNTRIES=["Saudi Arabia","Jordan","Iraq","Egypt","Morocco","Tunisia","Algeria"]
+CONTEXT={"Yemen","Oman","United Arab Emirates","Qatar","Kuwait","Syria","Turkey",
+         "Sudan","Libya","Mali","Niger","Mauritania","Lebanon","Djibouti","Bahrain"}
+ALLOWED=set(COUNTRIES)|CONTEXT
+REQUIRED={"country","city","latitude","longitude"}
+MAP_URL="https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+SIZES={"Single column (85 mm)":85,"Double column (175 mm)":175,
+       "Presentation (250 mm)":250}
+MARKERS={"Data collection site":("o","black",1.2),
+         "Comparison site":("o","white",1.2),
+         "Reference city":("^","#bdbdbd",1.0)}
+
 def validate_locations(df):
-    missing = REQUIRED-set(df.columns)
+    missing=REQUIRED-set(df.columns)
     if missing: raise ValueError("Missing CSV columns: "+", ".join(sorted(missing)))
-    df = df.copy()
-    for col in ("latitude","longitude"):
-        df[col] = pd.to_numeric(df[col],errors="coerce")
-    bad = (df.latitude.isna()|df.longitude.isna()|~df.latitude.between(-90,90)|~df.longitude.between(-180,180))
-    if bad.any(): raise ValueError(f"{bad.sum()} row(s) contain invalid coordinates")
+    df=df.copy()
+    for key in ("latitude","longitude"): df[key]=pd.to_numeric(df[key],errors="coerce")
+    bad=df.latitude.isna()|df.longitude.isna()|~df.latitude.between(-90,90)|~df.longitude.between(-180,180)
+    if bad.any(): raise ValueError(f"Invalid coordinates in {int(bad.sum())} row(s)")
     if df[["city","country"]].isna().any().any(): raise ValueError("Country and city are required")
     return df
 
-def make_figure(df, selected_countries, title="Linguistic research locations",
-                labels=True,marker_size=46,show_gulf=True,figsize=(10,8),
-                sampled_cities=None,show_context=True,show_legend=True,
-                show_axes=False,show_notes=False):
+@lru_cache(maxsize=1)
+def boundaries():
+    """Cache Natural Earth 1:110m geometries; NEVER render excluded countries."""
+    local=ROOT/"data"/"natural_earth_110m.geojson"
+    if not local.exists():
+        # Download once on first map request; caching avoids repeated network calls.
+        try:
+            with urllib.request.urlopen(MAP_URL,timeout=35) as response:
+                raw=response.read()
+            obj=json.loads(raw)
+            if obj.get("type")!="FeatureCollection" or len(obj.get("features",[]))<100:
+                raise ValueError("Unexpected Natural Earth data")
+            local.parent.mkdir(exist_ok=True)
+            local.write_bytes(raw)
+        except Exception as exc:
+            raise RuntimeError("Natural Earth basemap unavailable. Retry shortly. "+str(exc)) from exc
+    geo=gpd.read_file(local)
+    col=next((c for c in ("ADMIN","admin","NAME","name") if c in geo.columns),None)
+    if col is None: raise RuntimeError("Natural Earth country name field not found")
+    geo=geo.rename(columns={col:"country"})
+    # Source sometimes uses 'United States of America', irrelevant to our area.
+    return geo[geo.country.isin(ALLOWED)][["country","geometry"]].copy()
+
+def make_figure(df,selected_countries,title="",labels=True,marker_size=42,
+                show_gulf=True,sampled_cities=None,show_context=True,
+                show_legend=True,show_axes=False,show_notes=False,
+                roles=None,hidden_labels=None,label_offsets=None,
+                width_mm=175,show_title=False):
     df=validate_locations(df)
-    selected_countries=[x for x in selected_countries if x in COUNTRIES]
-    if not selected_countries: raise ValueError("Select at least one supported country")
-    shapes=gpd.read_file(ROOT/"data"/"arab_countries.geojson")
-    shapes=shapes[shapes.name.isin(selected_countries)]
-    if shapes.empty: raise ValueError("No country boundaries available")
-    sampled_cities=set(sampled_cities or [])
-    shown=df[df.country.isin(selected_countries)]
-    fig,ax=plt.subplots(figsize=figsize,layout="constrained")
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-    shapes.plot(ax=ax,color="#f1f1f1",edgecolor="#333333",linewidth=1.1,zorder=1)
-    xmin,ymin,xmax,ymax=shapes.total_bounds
-    xp=max((xmax-xmin)*.13,1.5); yp=max((ymax-ymin)*.13,1.5)
-    ax.set_xlim(xmin-xp,xmax+xp); ax.set_ylim(ymin-yp,ymax+yp)
+    selected=[c for c in selected_countries if c in COUNTRIES]
+    if not selected: raise ValueError("Choose at least one supported country")
+    geo=boundaries()
+    focus=geo[geo.country.isin(selected)]
+    if focus.empty: raise RuntimeError("Selected country boundaries unavailable")
+    roles=roles or {}; hidden_labels=set(hidden_labels or [])
+    label_offsets=label_offsets or {}
+    # Width in physical mm is the controlling dimension for print typography.
+    width_in=width_mm/25.4
+    fig,ax=plt.subplots(figsize=(width_in,width_in*.78),layout="constrained")
+    fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+    xmin,ymin,xmax,ymax=focus.total_bounds
+    px=max((xmax-xmin)*.18,1.6); py=max((ymax-ymin)*.18,1.6)
+    limits=(xmin-px,ymin-py,xmax+px,ymax+py)
     if show_context:
-        for country in selected_countries:
-            for name,lon,lat in CONTEXT.get(country,[]):
-                if name not in selected_countries and xmin-xp<lon<xmax+xp and ymin-yp<lat<ymax+yp:
-                    ax.text(lon,lat,name,color="#666666",fontsize=8,ha="center",zorder=2)
-    if show_gulf and "Saudi Arabia" in selected_countries:
-        ax.text(51.7,26.6,"Gulf Sea",fontsize=9,color="#555555",fontstyle="italic",ha="center")
-    if show_context and "Saudi Arabia" in selected_countries:
-        ax.text(38,23,"Red Sea",fontsize=9,color="#555555",fontstyle="italic",rotation=70,ha="center")
+        nearby=geo[(~geo.country.isin(selected)) & geo.intersects(
+            __import__("shapely").geometry.box(*limits))]
+        if not nearby.empty:
+            nearby.plot(ax=ax,color="#fafafa",edgecolor="#777777",linewidth=.5,zorder=1)
+            for row in nearby.itertuples():
+                # Use point on surface, not a potentially offshore centroid.
+                p=row.geometry.representative_point()
+                if limits[0]<p.x<limits[2] and limits[1]<p.y<limits[3]:
+                    ax.text(p.x,p.y,row.country,fontsize=6.8,color="#666666",
+                            ha="center",va="center",zorder=2)
+    focus.plot(ax=ax,color="#ebebeb",edgecolor="#222222",linewidth=.9,zorder=3)
+    ax.set_xlim(limits[0],limits[2]); ax.set_ylim(limits[1],limits[3])
+    # Geographic labels are deliberately in English.
+    if show_gulf and "Saudi Arabia" in selected:
+        ax.text(51.6,26.8,"Gulf Sea",fontsize=7.4,fontstyle="italic",color="#555555",
+                ha="center",zorder=4)
+    if "Saudi Arabia" in selected:
+        ax.text(38.2,23.4,"Red Sea",fontsize=7.2,fontstyle="italic",
+                color="#555555",rotation=70,ha="center",zorder=4)
+    shown=df[df.country.isin(selected)]
     texts=[]
     for row in shown.itertuples():
-        sample=str(row.city) in sampled_cities
-        ax.scatter(row.longitude,row.latitude,s=marker_size*(1.5 if sample else 1),
-                   facecolor="black" if sample else "white",edgecolor="black",
-                   linewidth=1.2,zorder=5)
-        if labels:
-            texts.append(ax.text(row.longitude+.06,row.latitude+.06,str(row.city),
-                                 fontsize=8.2,color="black",zorder=6))
+        city=str(row.city)
+        role=roles.get(city,"Reference city")
+        if sampled_cities and city in sampled_cities: role="Data collection site"
+        marker,face,edge=MARKERS.get(role,MARKERS["Reference city"])
+        ax.scatter(row.longitude,row.latitude,s=marker_size,marker=marker,
+                   facecolor=face,edgecolor="black",linewidth=edge,zorder=6)
+        if labels and city not in hidden_labels:
+            dx,dy=label_offsets.get(city,(0,0))
+            txt=ax.annotate(city,(row.longitude,row.latitude),
+                            xytext=(4+dx,4+dy),textcoords="offset points",
+                            fontsize=7.5,color="black",zorder=7)
+            if not(dx or dy): texts.append(txt)
     if texts:
-        adjust_text(texts,ax=ax,expand=(1.2,1.35),
-                    arrowprops=dict(arrowstyle="-",color="#888888",lw=.5))
-    ax.set_title(title,fontsize=14,fontweight="bold",pad=12)
+        adjust_text(texts,ax=ax,expand=(1.15,1.35),
+                    arrowprops=dict(arrowstyle="-",lw=.45,color="#777777"))
+    if show_title and title: ax.set_title(title,fontsize=10.5,pad=8)
     if show_axes:
-        ax.set_xlabel("Longitude (°E)"); ax.set_ylabel("Latitude (°N)")
-        ax.grid(color="#dddddd",linewidth=.4,zorder=0)
+        ax.set_xlabel("Longitude (°E)",fontsize=8)
+        ax.set_ylabel("Latitude (°N)",fontsize=8)
+        ax.tick_params(labelsize=7)
+        ax.grid(color="#dddddd",linewidth=.35,zorder=0)
     else: ax.set_axis_off()
-    if show_legend and len(shown):
-        handles=[Line2D([],[],marker="o",linestyle="None",markerfacecolor="black",
-                        markeredgecolor="black",label="Data collection site"),
-                 Line2D([],[],marker="o",linestyle="None",markerfacecolor="white",
-                        markeredgecolor="black",label="Reference city")]
-        ax.legend(handles=handles,loc="lower left",fontsize=8,
-                  facecolor="white",edgecolor="#777777")
+    if show_legend and not shown.empty:
+        present=[r for r in MARKERS if r in {roles.get(str(c),"Reference city") for c in shown.city}]
+        handles=[Line2D([],[],marker=MARKERS[r][0],linestyle="None",markersize=6,
+                        markerfacecolor=MARKERS[r][1],markeredgecolor="black",label=r)
+                 for r in present]
+        ax.legend(handles=handles,loc="lower left",fontsize=6.5,frameon=True,
+                  facecolor="white",edgecolor="#aaaaaa")
     if show_notes:
-        fig.text(.08,.015,"Illustrative locations; not dialect boundaries. "
-                 "Country outlines are simplified.",fontsize=7,color="#555555")
+        fig.text(.05,.01,"Natural Earth 1:110m. Points are research locations, not dialect boundaries.",
+                 fontsize=6,color="#555555")
     return fig
 
 def export_figure(fig,fmt="png",dpi=600):
-    if fmt not in ("png","pdf","svg"): raise ValueError("Unsupported export format")
+    if fmt not in ("png","pdf","svg"): raise ValueError("Unsupported format")
     buf=BytesIO()
     fig.savefig(buf,format=fmt,dpi=dpi,bbox_inches="tight",facecolor="white")
     return buf.getvalue()
